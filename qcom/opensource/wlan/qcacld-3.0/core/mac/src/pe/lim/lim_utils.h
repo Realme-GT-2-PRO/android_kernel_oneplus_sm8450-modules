@@ -156,6 +156,11 @@ QDF_STATUS lim_send_set_max_tx_power_req(struct mac_context *mac,
 		int8_t txPower,
 		struct pe_session *pe_session);
 
+#ifdef OPLUS_FEATURE_SOFTAP_DCS_SWITCH
+//Add for softap connect fail monitor
+void hostapd_send_sae_uevent(struct sir_sae_msg *sae_msg);
+#endif /* OPLUS_FEATURE_SOFTAP_DCS_SWITCH */
+
 /**
  * lim_get_num_pwr_levels() - Utility to get number of tx power levels
  * @is_psd: PSD power check
@@ -185,6 +190,8 @@ uint8_t lim_get_max_tx_power(struct mac_context *mac,
  * lim_calculate_tpc() - Utility to get maximum tx power
  * @mac: mac handle
  * @session: PE Session Entry
+ * @is_pwr_constraint_absolute: If local power constraint is an absolute
+ * value or an offset value.
  * @ap_pwr_type: Ap power type for 6G
  * @ctry_code_match: check for country IE and sta programmed ctry match
  *
@@ -195,6 +202,7 @@ uint8_t lim_get_max_tx_power(struct mac_context *mac,
  */
 void lim_calculate_tpc(struct mac_context *mac,
 		       struct pe_session *session,
+		       bool is_pwr_constraint_absolute,
 		       uint8_t ap_pwr_type,
 		       bool ctry_code_match);
 

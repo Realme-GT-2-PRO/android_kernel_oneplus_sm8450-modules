@@ -322,6 +322,8 @@ static u32 hdd_to_nl_sar_version(enum sar_version hdd_sar_version)
 		return QCA_WLAN_VENDOR_SAR_VERSION_1;
 	case (SAR_VERSION_2):
 		return QCA_WLAN_VENDOR_SAR_VERSION_2;
+	case (SAR_VERSION_3):
+		return QCA_WLAN_VENDOR_SAR_VERSION_3;
 	default:
 		return QCA_WLAN_VENDOR_SAR_VERSION_INVALID;
 	}
@@ -345,6 +347,9 @@ static int hdd_sar_fill_capability_response(struct sk_buff *skb,
 
 	attr = QCA_WLAN_VENDOR_ATTR_SAR_CAPABILITY_VERSION;
 	value = hdd_to_nl_sar_version(hdd_ctx->sar_version);
+
+	hdd_debug("SAR Version = %u", value);
+
 	errno = nla_put_u32(skb, attr, value);
 
 	return errno;
@@ -1229,11 +1234,10 @@ void wlan_hdd_sar_timers_reset(struct hdd_context *hdd_ctx)
 	if (QDF_IS_STATUS_SUCCESS(status))
 		hdd_nofl_debug("sar safety timer started");
 
-	qdf_event_set(&hdd_ctx->sar_safety_req_resp_event);
-
 	qdf_delayed_work_stop_sync(&hdd_ctx->sar_safety_unsolicited_work);
 	hdd_nofl_debug("sar safety unsolicited work stopped");
 
+	qdf_event_set(&hdd_ctx->sar_safety_req_resp_event);
 }
 
 void wlan_hdd_sar_timers_init(struct hdd_context *hdd_ctx)

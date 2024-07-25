@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2013-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -2670,6 +2670,8 @@ static int wma_unified_phyerr_rx_event_handler(void *handle,
 
 void wma_vdev_init(struct wma_txrx_node *vdev)
 {
+	qdf_wake_lock_create(&vdev->vdev_set_key_wakelock, "vdev_set_key");
+	qdf_runtime_lock_init(&vdev->vdev_set_key_runtime_wakelock);
 	vdev->is_waiting_for_key = false;
 }
 
@@ -2738,6 +2740,8 @@ void wma_vdev_deinit(struct wma_txrx_node *vdev)
 		vdev->plink_status_req = NULL;
 	}
 
+	qdf_runtime_lock_deinit(&vdev->vdev_set_key_runtime_wakelock);
+	qdf_wake_lock_destroy(&vdev->vdev_set_key_wakelock);
 	vdev->is_waiting_for_key = false;
 }
 
@@ -3097,15 +3101,6 @@ QDF_STATUS wma_open(struct wlan_objmgr_psoc *psoc,
 	}
 	wma_handle->psoc = psoc;
 
-	if (wlan_pmo_enable_ssr_on_page_fault(psoc)) {
-		wma_handle->pagefault_wakeups_ts =
-			qdf_mem_malloc(
-			wlan_pmo_get_max_pagefault_wakeups_for_ssr(psoc) *
-			sizeof(qdf_time_t));
-		if (!wma_handle->pagefault_wakeups_ts)
-			goto err_wma_handle;
-	}
-
 	wma_target_if_open(wma_handle);
 
 	/*
@@ -3339,6 +3334,12 @@ QDF_STATUS wma_open(struct wlan_objmgr_psoc *psoc,
 					   wma_oem_data_response_handler,
 					   WMA_RX_SERIALIZER_CTX);
 #endif /* FEATURE_OEM_DATA_SUPPORT */
+
+	/* Register peer change event handler */
+	wmi_unified_register_event_handler(wma_handle->wmi_handle,
+					   wmi_peer_state_event_id,
+					   wma_peer_state_change_event_handler,
+					   WMA_RX_WORK_CTX);
 
 	/* Register beacon tx complete event id. The event is required
 	 * for sending channel switch announcement frames
@@ -4333,6 +4334,10 @@ QDF_STATUS wma_start(void)
 		goto end;
 	}
 	wma_register_spectral_cmds(wma_handle);
+#ifdef OPLUS_FEATURE_CONN_POWER_MONITOR
+//add for  connectivity power monitor
+	oplusLpmUeventInit();
+#endif /* OPLUS_FEATURE_CONN_POWER_MONITOR */
 
 end:
 	wma_debug("Exit");
@@ -4373,6 +4378,11 @@ QDF_STATUS wma_stop(void)
 		qdf_mem_free(wma_handle->ack_work_ctx);
 		wma_handle->ack_work_ctx = NULL;
 	}
+
+#ifdef OPLUS_FEATURE_CONN_POWER_MONITOR
+//add for  connectivity power monitor
+	oplusConnUeventDeinit();
+#endif /* OPLUS_FEATURE_CONN_POWER_MONITOR */
 
 	/* Destroy the timer for log completion */
 	qdf_status = qdf_mc_timer_destroy(&wma_handle->log_completion_timer);
@@ -4502,9 +4512,6 @@ QDF_STATUS wma_close(void)
 	wmi_handle = wma_handle->wmi_handle;
 	if (wmi_validate_handle(wmi_handle))
 		return QDF_STATUS_E_INVAL;
-
-	if (wlan_pmo_enable_ssr_on_page_fault(wma_handle->psoc))
-		qdf_mem_free(wma_handle->pagefault_wakeups_ts);
 
 	qdf_atomic_set(&wma_handle->sap_num_clients_connected, 0);
 	qdf_atomic_set(&wma_handle->go_num_clients_connected, 0);
