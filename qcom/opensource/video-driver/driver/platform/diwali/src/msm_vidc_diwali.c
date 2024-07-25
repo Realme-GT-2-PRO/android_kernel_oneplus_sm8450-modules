@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -31,7 +31,6 @@
 #define MAX_QP                  51
 #define DEFAULT_QP              20
 #define MAX_CONSTANT_QUALITY    100
-#define MAX_BITRATE_BOOST       25
 #define MIN_SLICE_BYTE_SIZE     512
 #define MAX_SLICE_BYTE_SIZE       \
 	((MAX_BITRATE) >> 3)
@@ -162,7 +161,11 @@ static struct msm_platform_core_capability core_data_diwali_v2[] = {
 	{MAX_RT_MBPF, 97920}, /* ((3840x2176)/256) x 3 */
 	{MAX_MBPF, 110592}, /* ((4096x2304)/256) x 3 */
 	/* max_load 4096x2304@30fps*/
+#ifndef OPLUS_BUG_STABILITY
 	{MAX_MBPS, 1224000}, /* Concurrency: UHD@30 decode + 1080p@30 encode */
+#else /* OPLUS_BUG_STABILITY */
+        {MAX_MBPS, 2669600}, /* max_load 4096x2304@50fps + 1920*1080@60 */
+#endif
 	{MAX_IMAGE_MBPF, 1048576},  /* (16384x16384)/256 */
 	{MAX_MBPF_HQ, 8160}, /* ((1920x1088)/256) */
 	{MAX_MBPS_HQ, 244800}, /* ((1920x1088)/256)@30fps */
@@ -430,16 +433,6 @@ static struct msm_platform_inst_capability instance_data_diwali_v0[] = {
 		1, V4L2_MPEG_MSM_VIDC_DISABLE,
 		V4L2_CID_MPEG_VIDEO_PREPEND_SPSPPS_TO_IDR},
 
-	{VUI_TIMING_INFO, ENC, CODECS_ALL,
-		V4L2_MPEG_MSM_VIDC_DISABLE,
-		V4L2_MPEG_MSM_VIDC_ENABLE,
-		1, V4L2_MPEG_MSM_VIDC_DISABLE,
-		V4L2_CID_MPEG_VIDC_VUI_TIMING_INFO,
-		HFI_PROP_DISABLE_VUI_TIMING_INFO,
-		CAP_FLAG_OUTPUT_PORT,
-		{0}, {0},
-		NULL, msm_vidc_set_vui_timing_info},
-
 	{META_SEQ_HDR_NAL, ENC, CODECS_ALL,
 		V4L2_MPEG_MSM_VIDC_DISABLE,
 		V4L2_MPEG_MSM_VIDC_ENABLE,
@@ -705,8 +698,7 @@ static struct msm_platform_inst_capability instance_data_diwali_v0[] = {
 		msm_vidc_set_vbr_related_properties},
 
 	{BITRATE_BOOST, ENC, H264|HEVC,
-		0, MAX_BITRATE_BOOST,
-		MAX_BITRATE_BOOST, MAX_BITRATE_BOOST,
+		0, MAX_BITRATE_BOOST, 25, MAX_BITRATE_BOOST,
 		V4L2_CID_MPEG_VIDC_QUALITY_BITRATE_BOOST,
 		HFI_PROP_BITRATE_BOOST,
 		CAP_FLAG_OUTPUT_PORT,
@@ -1973,16 +1965,6 @@ static struct msm_platform_inst_capability instance_data_diwali_v1[] = {
 		1, V4L2_MPEG_MSM_VIDC_DISABLE,
 		V4L2_CID_MPEG_VIDEO_PREPEND_SPSPPS_TO_IDR},
 
-	{VUI_TIMING_INFO, ENC, CODECS_ALL,
-		V4L2_MPEG_MSM_VIDC_DISABLE,
-		V4L2_MPEG_MSM_VIDC_ENABLE,
-		1, V4L2_MPEG_MSM_VIDC_DISABLE,
-		V4L2_CID_MPEG_VIDC_VUI_TIMING_INFO,
-		HFI_PROP_DISABLE_VUI_TIMING_INFO,
-		CAP_FLAG_OUTPUT_PORT,
-		{0}, {0},
-		NULL, msm_vidc_set_vui_timing_info},
-
 	{META_SEQ_HDR_NAL, ENC, CODECS_ALL,
 		V4L2_MPEG_MSM_VIDC_DISABLE,
 		V4L2_MPEG_MSM_VIDC_ENABLE,
@@ -2248,8 +2230,7 @@ static struct msm_platform_inst_capability instance_data_diwali_v1[] = {
 		msm_vidc_set_vbr_related_properties},
 
 	{BITRATE_BOOST, ENC, H264|HEVC,
-		0, MAX_BITRATE_BOOST,
-		MAX_BITRATE_BOOST, MAX_BITRATE_BOOST,
+		0, MAX_BITRATE_BOOST, 25, MAX_BITRATE_BOOST,
 		V4L2_CID_MPEG_VIDC_QUALITY_BITRATE_BOOST,
 		HFI_PROP_BITRATE_BOOST,
 		CAP_FLAG_OUTPUT_PORT,
@@ -3255,7 +3236,7 @@ static struct msm_platform_inst_capability instance_data_diwali_v1[] = {
 	{PIX_FMTS, ENC, HEIC,
 		MSM_VIDC_FMT_NV12,
 		MSM_VIDC_FMT_P010,
-		MSM_VIDC_FMT_NV12 | MSM_VIDC_FMT_NV21 | MSM_VIDC_FMT_P010,
+		MSM_VIDC_FMT_NV12 | MSM_VIDC_FMT_P010,
 		MSM_VIDC_FMT_NV12,
 		0, 0,
 		CAP_FLAG_ROOT,
@@ -3514,16 +3495,6 @@ static struct msm_platform_inst_capability instance_data_diwali_v2[] = {
 		V4L2_MPEG_MSM_VIDC_ENABLE,
 		1, V4L2_MPEG_MSM_VIDC_DISABLE,
 		V4L2_CID_MPEG_VIDEO_PREPEND_SPSPPS_TO_IDR},
-
-	{VUI_TIMING_INFO, ENC, CODECS_ALL,
-		V4L2_MPEG_MSM_VIDC_DISABLE,
-		V4L2_MPEG_MSM_VIDC_ENABLE,
-		1, V4L2_MPEG_MSM_VIDC_DISABLE,
-		V4L2_CID_MPEG_VIDC_VUI_TIMING_INFO,
-		HFI_PROP_DISABLE_VUI_TIMING_INFO,
-		CAP_FLAG_OUTPUT_PORT,
-		{0}, {0},
-		NULL, msm_vidc_set_vui_timing_info},
 
 	{META_SEQ_HDR_NAL, ENC, CODECS_ALL,
 		V4L2_MPEG_MSM_VIDC_DISABLE,
@@ -3790,8 +3761,7 @@ static struct msm_platform_inst_capability instance_data_diwali_v2[] = {
 		msm_vidc_set_vbr_related_properties},
 
 	{BITRATE_BOOST, ENC, H264|HEVC,
-		0, MAX_BITRATE_BOOST,
-		MAX_BITRATE_BOOST, MAX_BITRATE_BOOST,
+		0, MAX_BITRATE_BOOST, 25, MAX_BITRATE_BOOST,
 		V4L2_CID_MPEG_VIDC_QUALITY_BITRATE_BOOST,
 		HFI_PROP_BITRATE_BOOST,
 		CAP_FLAG_OUTPUT_PORT,
@@ -4792,7 +4762,7 @@ static struct msm_platform_inst_capability instance_data_diwali_v2[] = {
 	{PIX_FMTS, ENC, HEIC,
 		MSM_VIDC_FMT_NV12,
 		MSM_VIDC_FMT_P010,
-		MSM_VIDC_FMT_NV12 | MSM_VIDC_FMT_NV21 | MSM_VIDC_FMT_P010,
+		MSM_VIDC_FMT_NV12 | MSM_VIDC_FMT_P010,
 		MSM_VIDC_FMT_NV12,
 		0, 0,
 		CAP_FLAG_ROOT,

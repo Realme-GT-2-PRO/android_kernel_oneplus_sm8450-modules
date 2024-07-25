@@ -13,14 +13,8 @@ endif
 endif
 
 ifeq ($(CONFIG_ARCH_NEO), y)
-ifeq ($(CONFIG_TARGET), neo_le)
-	include $(DISPLAY_ROOT)/config/gki_neoledisp.conf
-	LINUX_INC +=	-include $(DISPLAY_ROOT)/config/gki_neoledispconf.h
-endif
-ifeq ($(CONFIG_TARGET), neo_la)
 	include $(DISPLAY_ROOT)/config/gki_neodisp.conf
 	LINUX_INC +=	-include $(DISPLAY_ROOT)/config/gki_neodispconf.h
-endif
 endif
 
 ifeq ($(CONFIG_ARCH_PARROT), y)
@@ -280,3 +274,6 @@ msm_drm-$(CONFIG_DRM_MSM) += msm_atomic.o \
 			     msm_gem_vma.o \
 			     msm_smmu.o \
 			     msm_prop.o
+
+CDEFINES += -DBUILD_TIMESTAMP=\"$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')\"
+

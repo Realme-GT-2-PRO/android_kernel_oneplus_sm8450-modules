@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -26,7 +26,6 @@
 #define MAX_QP                  51
 #define DEFAULT_QP              20
 #define MAX_CONSTANT_QUALITY    100
-#define MAX_BITRATE_BOOST       15
 #define MIN_SLICE_BYTE_SIZE     512
 #define MAX_SLICE_BYTE_SIZE       \
 	((MAX_BITRATE) >> 3)
@@ -81,7 +80,7 @@ static struct msm_platform_core_capability core_data_khaje[] = {
 	{STATS_TIMEOUT_MS, 2000},
 	{AV_SYNC_WINDOW_SIZE, 40},
 	{NON_FATAL_FAULTS, 1},
-	{ENC_AUTO_FRAMERATE, 0},
+	{ENC_AUTO_FRAMERATE, 1},
 	{MMRM, 0},
 };
 
@@ -285,10 +284,10 @@ static struct msm_platform_inst_capability instance_data_khaje[] = {
 		V4L2_MPEG_MSM_VIDC_ENABLE,
 		1, V4L2_MPEG_MSM_VIDC_DISABLE,
 		V4L2_CID_MPEG_VIDC_VUI_TIMING_INFO,
-		HFI_PROP_DISABLE_VUI_TIMING_INFO,
+		0,
 		CAP_FLAG_OUTPUT_PORT,
 		{0}, {0},
-		NULL, msm_vidc_set_vui_timing_info},
+		NULL, NULL},
 
 	{META_SEQ_HDR_NAL, ENC, CODECS_ALL,
 		V4L2_MPEG_MSM_VIDC_DISABLE,
@@ -555,8 +554,7 @@ static struct msm_platform_inst_capability instance_data_khaje[] = {
 		NULL, NULL},
 
 	{BITRATE_BOOST, ENC, H264|HEVC,
-		0, MAX_BITRATE_BOOST,
-		MAX_BITRATE_BOOST, 0,
+		0, MAX_BITRATE_BOOST, 25, MAX_BITRATE_BOOST,
 		V4L2_CID_MPEG_VIDC_QUALITY_BITRATE_BOOST,
 		HFI_PROP_BITRATE_BOOST,
 		CAP_FLAG_OUTPUT_PORT,
@@ -994,7 +992,7 @@ static struct msm_platform_inst_capability instance_data_khaje[] = {
 
 	{LEVEL, DEC, H264,
 		V4L2_MPEG_VIDEO_H264_LEVEL_1_0,
-		V4L2_MPEG_VIDEO_H264_LEVEL_5_0,
+		V4L2_MPEG_VIDEO_H264_LEVEL_4_2,
 		BIT(V4L2_MPEG_VIDEO_H264_LEVEL_1_0)|
 		BIT(V4L2_MPEG_VIDEO_H264_LEVEL_1B)|
 		BIT(V4L2_MPEG_VIDEO_H264_LEVEL_1_1)|
@@ -1008,9 +1006,8 @@ static struct msm_platform_inst_capability instance_data_khaje[] = {
 		BIT(V4L2_MPEG_VIDEO_H264_LEVEL_3_2)|
 		BIT(V4L2_MPEG_VIDEO_H264_LEVEL_4_0)|
 		BIT(V4L2_MPEG_VIDEO_H264_LEVEL_4_1)|
-		BIT(V4L2_MPEG_VIDEO_H264_LEVEL_4_2)|
-		BIT(V4L2_MPEG_VIDEO_H264_LEVEL_5_0),
-		V4L2_MPEG_VIDEO_H264_LEVEL_5_0,
+		BIT(V4L2_MPEG_VIDEO_H264_LEVEL_4_2),
+		V4L2_MPEG_VIDEO_H264_LEVEL_4_2,
 		V4L2_CID_MPEG_VIDEO_H264_LEVEL,
 		HFI_PROP_LEVEL,
 		CAP_FLAG_ROOT | CAP_FLAG_OUTPUT_PORT | CAP_FLAG_MENU,
@@ -1088,10 +1085,9 @@ static struct msm_platform_inst_capability instance_data_khaje[] = {
 
 	{HEVC_TIER, ENC|DEC, HEVC,
 		V4L2_MPEG_VIDEO_HEVC_TIER_MAIN,
-		V4L2_MPEG_VIDEO_HEVC_TIER_HIGH,
-		BIT(V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) |
-		BIT(V4L2_MPEG_VIDEO_HEVC_TIER_HIGH),
-		V4L2_MPEG_VIDEO_HEVC_TIER_HIGH,
+		V4L2_MPEG_VIDEO_HEVC_TIER_MAIN,
+		BIT(V4L2_MPEG_VIDEO_HEVC_TIER_MAIN),
+		V4L2_MPEG_VIDEO_HEVC_TIER_MAIN,
 		V4L2_CID_MPEG_VIDEO_HEVC_TIER,
 		HFI_PROP_TIER,
 		CAP_FLAG_ROOT | CAP_FLAG_OUTPUT_PORT | CAP_FLAG_MENU,

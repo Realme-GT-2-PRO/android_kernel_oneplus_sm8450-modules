@@ -19,7 +19,6 @@
 #include <linux/notifier.h>
 #include <linux/msm_drm_notify.h>
 #include <soc/oplus/device_info.h>
-#include <soc/oplus/touchpanel_event_notify.h>
 #include "dsi_pwr.h"
 #include "oplus_display_panel.h"
 #ifdef OPLUS_FEATURE_DISPLAY
@@ -78,8 +77,6 @@ unsigned int oplus_display_trace_enable = OPLUS_DISPLAY_DISABLE_TRACE;
 int dsi_cmd_panel_debug = 0;
 uint64_t serial_number_fir = 0x0;
 uint64_t serial_number_sec = 0x0;
-
-struct touchpanel_event fp_state = {0};
 
 EXPORT_SYMBOL(oplus_dimlayer_bl_alpha);
 EXPORT_SYMBOL(oplus_dimlayer_bl_enable_real);
@@ -1294,6 +1291,79 @@ static ssize_t oplus_set_pwm_turbo_debug(struct kobject *obj,
 
 	return count;
 }
+
+/* start for pwm onepulse feature */
+static ssize_t oplus_get_pwm_pulse_debug(struct kobject *obj,
+	struct kobj_attribute *attr, char *buf)
+{
+	int rc = 0;
+	u32 enabled = 0;
+	struct dsi_display *display = get_main_display();
+	struct dsi_panel *panel = NULL;
+
+	if (!display || !display->panel) {
+		DSI_ERR("Invalid display or panel\n");
+		rc = -EINVAL;
+		return rc;
+	}
+
+	panel = display->panel;
+
+	if (!panel->oplus_priv.pwm_onepulse_support) {
+		DSI_ERR("Falied to get pwm pulse status, because it is unsupport\n");
+		rc = -EFAULT;
+		return rc;
+	}
+
+	mutex_lock(&display->display_lock);
+	mutex_lock(&panel->panel_lock);
+
+	enabled = panel->oplus_priv.pwm_onepulse_enabled;
+
+	mutex_unlock(&panel->panel_lock);
+	mutex_unlock(&display->display_lock);
+	DSI_INFO("Get pwm pulse status: %d\n", enabled);
+
+	return sysfs_emit(buf, "%d\n", enabled);
+}
+
+static ssize_t oplus_set_pwm_pulse_debug(struct kobject *obj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	int rc = 0;
+	u32 enabled = 0;
+	struct dsi_display *display = get_main_display();
+	struct dsi_panel *panel = NULL;
+
+	if (!display || !display->panel) {
+		DSI_ERR("Invalid display or panel\n");
+		rc = -EINVAL;
+		return rc;
+	}
+
+	panel = display->panel;
+
+	if (!panel->oplus_priv.pwm_onepulse_support) {
+		DSI_ERR("Falied to set pwm onepulse status, because it is unsupport\n");
+		rc = -EFAULT;
+		return rc;
+	}
+
+	rc = kstrtou32(buf, 10, &enabled);
+	if (rc) {
+		DSI_WARN("%s cannot be converted to u32", buf);
+		return count;
+	}
+	DSI_INFO("Set pwm onepulse status: %du\n", enabled);
+
+	mutex_lock(&display->display_lock);
+	oplus_panel_update_pwm_pulse_lock(panel, enabled);
+	mutex_unlock(&display->display_lock);
+
+	return count;
+}
+/* end for pwm onepulse feature */
 
 static ssize_t oplus_get_ffc_mode_debug(struct kobject *obj,
 	struct kobj_attribute *attr, char *buf)
@@ -3182,13 +3252,6 @@ static ssize_t oplus_display_set_crc_check(struct kobject *obj,
 	return count;
 }
 
-static ssize_t oplus_display_get_fp_state(struct kobject *obj,
-	struct kobj_attribute *attr, char *buf)
-{
-	return sprintf(buf, "%d,%d,%d\n", fp_state.x, fp_state.y, fp_state.touch_state);
-	
-}
-
 static struct kobject *oplus_display_kobj;
 
 static OPLUS_ATTR(audio_ready, S_IRUGO | S_IWUSR, NULL,
@@ -3244,7 +3307,6 @@ static OPLUS_ATTR(panel_pwr, S_IRUGO | S_IWUSR, oplus_display_get_panel_pwr,
 		oplus_display_set_panel_pwr);
 static OPLUS_ATTR(dsi_log_switch, S_IRUGO | S_IWUSR, oplus_display_get_dsi_log_switch,
 		oplus_display_set_dsi_log_switch);
-static OPLUS_ATTR(fp_state, S_IRUGO, oplus_display_get_fp_state, NULL);
 static OPLUS_ATTR(trace_enable, S_IRUGO | S_IWUSR, oplus_display_get_trace_enable_attr, oplus_display_set_trace_enable_attr);
 static OPLUS_ATTR(backlight_smooth, S_IRUGO|S_IWUSR, oplus_backlight_smooth_get_debug,
 		oplus_backlight_smooth_set_debug);
@@ -3265,6 +3327,9 @@ static OPLUS_ATTR(temp_compensation_config, S_IRUGO | S_IWUSR, oplus_temp_compen
 static OPLUS_ATTR(ntc_temp, S_IRUGO | S_IWUSR, oplus_temp_compensation_get_ntc_temp_attr, oplus_temp_compensation_set_ntc_temp_attr);
 static OPLUS_ATTR(shell_temp, S_IRUGO | S_IWUSR, oplus_temp_compensation_get_shell_temp_attr, oplus_temp_compensation_set_shell_temp_attr);
 #endif /* OPLUS_FEATURE_DISPLAY_TEMP_COMPENSATION */
+/* add for onepulse feature */
+static OPLUS_ATTR(pwm_onepulse, S_IRUGO|S_IWUSR, oplus_get_pwm_pulse_debug,
+		oplus_set_pwm_pulse_debug);
 #ifdef OPLUS_FEATURE_DISPLAY_ONSCREENFINGERPRINT
 static OPLUS_ATTR(fp_type, S_IRUGO | S_IWUSR, oplus_ofp_get_fp_type_attr, oplus_ofp_set_fp_type_attr);
 static OPLUS_ATTR(hbm, S_IRUGO | S_IWUSR, oplus_ofp_get_hbm_attr, oplus_ofp_set_hbm_attr);
@@ -3312,6 +3377,8 @@ static struct attribute *oplus_display_attrs[] = {
 	&oplus_attr_ffc_mode.attr,
 	&oplus_attr_crc_check.attr,
 	&oplus_attr_pwm_turbo.attr,
+	/* add for onepulse feature */
+	&oplus_attr_pwm_onepulse.attr,
 #ifdef OPLUS_FEATURE_DISPLAY
 	&oplus_attr_adfr_debug.attr,
 	&oplus_attr_vsync_switch.attr,
@@ -3325,7 +3392,6 @@ static struct attribute *oplus_display_attrs[] = {
 #endif /* OPLUS_FEATURE_DISPLAY_TEMP_COMPENSATION */
 #ifdef OPLUS_FEATURE_DISPLAY_ONSCREENFINGERPRINT
 	&oplus_attr_fp_type.attr,
-	&oplus_attr_fp_state.attr,
 	&oplus_attr_hbm.attr,
 	&oplus_attr_aor.attr,
 	&oplus_attr_dimlayer_hbm.attr,
@@ -3356,23 +3422,6 @@ int oplus_display_get_resolution(unsigned int *xres, unsigned int *yres)
 }
 EXPORT_SYMBOL(oplus_display_get_resolution);
 
-static int oplus_input_event_notify(struct notifier_block *self, unsigned long action, void *data) {
-	struct touchpanel_event *event = (struct touchpanel_event*)data;
-
-	if (event && action == EVENT_ACTION_FOR_FINGPRINT) {
-		fp_state.x = event->x;
-		fp_state.y = event->y;
-		fp_state.touch_state = event->touch_state;
-		sysfs_notify(kernel_kobj, "oplus_display", oplus_attr_fp_state.attr.name);
-	}
-
-	return NOTIFY_DONE;
-}
-
-struct notifier_block oplus_input_event_notifier = {
-	.notifier_call = oplus_input_event_notify,
-};
-
 int oplus_display_private_api_init(void)
 {
 	struct dsi_display *display = get_main_display();
@@ -3402,12 +3451,6 @@ int oplus_display_private_api_init(void)
 		goto error_remove_sysfs_group;
 	}
 
-	retval = touchpanel_event_register_notifier(&oplus_input_event_notifier);
-
-	if (retval) {
-		goto error_remove_sysfs_group;
-	}
-
 	return 0;
 
 error_remove_sysfs_group:
@@ -3421,7 +3464,6 @@ error_remove_kobj:
 
 void  oplus_display_private_api_exit(void)
 {
-	touchpanel_event_unregister_notifier(&oplus_input_event_notifier);
 	sysfs_remove_link(oplus_display_kobj, "panel");
 	sysfs_remove_group(oplus_display_kobj, &oplus_display_attr_group);
 	kobject_put(oplus_display_kobj);
