@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  * Copyright (c) 2009-2021, The Linux Foundation. All rights reserved.
  */
 
@@ -634,7 +634,7 @@ static struct notifier_block sde_md_notify_blk = {
 	.priority = INT_MAX,
 };
 
-static int sde_register_md_panic_notifer(void)
+static int sde_register_md_panic_notifer()
 {
 	qcom_va_md_register("display", &sde_md_notify_blk);
 	return 0;
@@ -657,7 +657,7 @@ void sde_mini_dump_add_va_region(const char *name, u32 size, void *virt_addr)
 	return;
 }
 #else
-static int sde_register_md_panic_notifer(void)
+static int sde_register_md_panic_notifer()
 {
 	return 0;
 }
@@ -1338,8 +1338,8 @@ ssize_t oplus_sde_evtlog_dump_read(struct file *file, char __user *buff,
 	mutex_lock(&sde_dbg_base.mutex);
 	sde_dbg_base.cur_evt_index = 0;
 	sde_dbg_base.evtlog->first = (u32)atomic_add_return(0, &sde_dbg_base.evtlog->curr) + 1;
-	atomic_set(&sde_dbg_base.evtlog->last,
-		(sde_dbg_base.evtlog->first + SDE_EVTLOG_ENTRY));
+	sde_dbg_base.evtlog->last =
+		sde_dbg_base.evtlog->first + SDE_EVTLOG_ENTRY;
 
 	len = sde_evtlog_dump_to_buffer(sde_dbg_base.evtlog,
 			evtlog_buf, SDE_EVTLOG_BUF_MAX,
@@ -1378,8 +1378,8 @@ static int sde_dbg_debugfs_open(struct inode *inode, struct file *file)
 	mutex_lock(&sde_dbg_base.mutex);
 	sde_dbg_base.cur_evt_index = 0;
 	sde_dbg_base.evtlog->first = (u32)atomic_add_return(0, &sde_dbg_base.evtlog->curr) + 1;
-	atomic_set(&sde_dbg_base.evtlog->last,
-		(sde_dbg_base.evtlog->first + SDE_EVTLOG_ENTRY));
+	sde_dbg_base.evtlog->last =
+		sde_dbg_base.evtlog->first + SDE_EVTLOG_ENTRY;
 	mutex_unlock(&sde_dbg_base.mutex);
 	return 0;
 }
