@@ -529,7 +529,7 @@ int sipa_param_read_extra_cfg(
 	return 0;
 }
 
-const SIPA_PARAM *sipa_param_instance(void)
+const SIPA_PARAM *sipa_param_instance()
 {
 	if (1 != sipa_fw_loaded)
 		return NULL;
