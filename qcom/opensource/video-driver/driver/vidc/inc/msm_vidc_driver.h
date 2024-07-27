@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
@@ -152,6 +152,11 @@ static inline bool is_meta_enabled(struct msm_vidc_inst *inst, unsigned int type
 	return enabled;
 }
 
+static inline bool is_outbuf_fence_enabled(struct msm_vidc_inst *inst)
+{
+	return !!(inst->capabilities->cap[META_OUTBUF_FENCE].value);
+}
+
 static inline bool is_linear_yuv_colorformat(enum msm_vidc_colorformat_type colorformat)
 {
 	return colorformat == MSM_VIDC_FMT_NV12 ||
@@ -298,7 +303,7 @@ int msm_vidc_alloc_and_queue_session_internal_buffers(struct msm_vidc_inst *inst
 int msm_vidc_release_internal_buffers(struct msm_vidc_inst *inst,
 		enum msm_vidc_buffer_type buffer_type);
 int msm_vidc_vb2_buffer_done(struct msm_vidc_inst *inst,
-	struct msm_vidc_buffer *buf);
+		struct msm_vidc_buffer *buf);
 int msm_vidc_remove_session(struct msm_vidc_inst *inst);
 int msm_vidc_add_session(struct msm_vidc_inst *inst);
 int msm_vidc_session_open(struct msm_vidc_inst *inst);
@@ -417,7 +422,7 @@ bool inst_lock_check(struct msm_vidc_inst *inst, const char *function);
 int msm_vidc_update_bitstream_buffer_size(struct msm_vidc_inst *inst);
 int msm_vidc_update_meta_port_settings(struct msm_vidc_inst *inst);
 int msm_vidc_update_buffer_count(struct msm_vidc_inst *inst, u32 port);
-void msm_vidc_schedule_core_deinit(struct msm_vidc_core *core);
+int msm_vidc_schedule_core_deinit(struct msm_vidc_core *core, bool force_deinit);
 bool msm_vidc_is_super_buffer(struct msm_vidc_inst *inst);
 int msm_vidc_init_core_caps(struct msm_vidc_core* core);
 int msm_vidc_init_instance_caps(struct msm_vidc_core* core);
