@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
@@ -341,8 +341,8 @@ int dsi_display_cmd_engine_enable(struct dsi_display *display)
 	rc = dsi_ctrl_set_cmd_engine_state(m_ctrl->ctrl,
 				DSI_CTRL_ENGINE_ON, skip_op);
 	if (rc) {
-		DSI_ERR( "[%s] disable cmd engine failed, skip_op:%d rc:%d\n",
-					display->name, skip_op, rc);
+		DSI_ERR("[%s] enable mcmd engine failed, skip_op:%d rc:%d\n",
+		       display->name, skip_op, rc);
 		goto done;
 	}
 
@@ -354,8 +354,9 @@ int dsi_display_cmd_engine_enable(struct dsi_display *display)
 		rc = dsi_ctrl_set_cmd_engine_state(ctrl->ctrl,
 					DSI_CTRL_ENGINE_ON, skip_op);
 		if (rc) {
-			    DSI_ERR("[%s] disable mcmd engine failed, skip_op:%d rc:%d\n",
-							display->name, skip_op, rc);
+			DSI_ERR(
+			    "[%s] enable cmd engine failed, skip_op:%d rc:%d\n",
+			       display->name, skip_op, rc);
 			goto error_disable_master;
 		}
 	}
@@ -1018,7 +1019,6 @@ static int dsi_display_status_reg_read(struct dsi_display *display)
 	}
 
 	rc = dsi_display_validate_status(m_ctrl, display);
-
 	if (rc <= 0) {
 		DSI_ERR("[%s] read status failed on master,rc=%d\n",
 		       display->name, rc);
@@ -1084,6 +1084,7 @@ static int dsi_display_status_check_te(struct dsi_display *display,
 					esd_te_timeout)) {
 			DSI_ERR("TE check failed\n");
 			dsi_display_change_te_irq_status(display, false);
+			dsi_display_release_te_irq(display);
 			return -EINVAL;
 		}
 	}
@@ -2355,7 +2356,7 @@ static void adjust_timing_by_ctrl_count(const struct dsi_display *display,
 	} else {
 		if (mode->priv_info->dsc_enabled)
 			mode->priv_info->dsc.config.pic_width =
-				mode->timing.h_active;
+				mode->timing.h_active / mode->priv_info->dsc.dsc_pic_width_slice;
 		mode->timing.h_active /= display->ctrl_count;
 		mode->timing.h_front_porch /= display->ctrl_count;
 		mode->timing.h_sync_width /= display->ctrl_count;
@@ -2888,6 +2889,7 @@ static int dsi_display_parse_boot_display_selection(void)
 			boot_displays[i].name[j] = *(disp_buf + j);
 
 		boot_displays[i].name[j] = '\0';
+
 		boot_displays[i].boot_disp_en = true;
 	}
 
@@ -3668,7 +3670,7 @@ int dsi_host_transfer_sub(struct mipi_dsi_host *host, struct dsi_cmd_desc *cmd)
 
 		rc = dsi_ctrl_transfer_prepare(display->ctrl[idx].ctrl, cmd->ctrl_flags);
 		if (rc) {
-			DSI_ERR("prepare for rx cmd transfer failed rc=%d\n", rc);
+			DSI_ERR("failed to prepare for command transfer: %d\n", rc);
 			goto error;
 		}
 
@@ -5638,6 +5640,22 @@ int dsi_display_cont_splash_config(void *dsi_display)
 
 	display->is_cont_splash_enabled = true;
 
+	/*
+	 * Vote on panel regulator is added to make sure panel regulators are ON
+	 * for cont-splash enabled usecase in case of hibernate exit.
+	 */
+	if (display->is_hibernate_splash_enabled) {
+		display->is_hibernate_exit = true;
+		rc = dsi_pwr_enable_regulator(&display->panel->power_info, true);
+		if (rc)
+			DSI_ERR("[%s] failed to disable vregs, rc=%d\n",
+					display->panel->name, rc);
+
+	}
+
+	if (!display->is_hibernate_splash_enabled)
+		display->is_hibernate_splash_enabled = true;
+
 	/* Update splash status for clock manager */
 	dsi_display_clk_mngr_update_splash_status(display->clk_mngr,
 				display->is_cont_splash_enabled);
@@ -6233,7 +6251,7 @@ static int dsi_display_init(struct dsi_display *display)
 		DSI_ERR("component add failed, rc=%d\n", rc);
 
 #ifdef OPLUS_FEATURE_DISPLAY
-	DSI_INFO("component add success: %s\n", display->name);
+	DSI_DEBUG("component add success: %s\n", display->name);
 #endif /* OPLUS_FEATURE_DISPLAY */
 end:
 	return rc;
@@ -8641,6 +8659,12 @@ int dsi_display_prepare(struct dsi_display *display)
 	if (!display->trusted_vm_env)
 		dsi_display_ctrl_isr_configure(display, true);
 
+	/* Unset DMS flag in case of hibernate exit */
+	if (display->is_hibernate_exit) {
+		mode->dsi_mode_flags &= ~DSI_MODE_FLAG_DMS;
+		display->is_hibernate_exit = false;
+	}
+
 	if (mode->dsi_mode_flags & DSI_MODE_FLAG_DMS) {
 		if (display->is_cont_splash_enabled &&
 		    display->config.panel_mode == DSI_OP_VIDEO_MODE) {
@@ -8751,8 +8775,8 @@ int dsi_display_prepare(struct dsi_display *display)
 			}
 		}
 	}
-
 	goto error;
+
 error_ctrl_link_off:
 	(void)dsi_display_clk_ctrl(display->dsi_clk_handle,
 			DSI_LINK_CLK, DSI_CLK_OFF);
@@ -9175,6 +9199,7 @@ int dsi_display_enable(struct dsi_display *display)
 		if (rc)
 			DSI_ERR("[%s] failed to switch DSI panel mode, rc=%d\n",
 				   display->name, rc);
+
 		goto error;
 	}
 
@@ -9381,7 +9406,7 @@ int dsi_display_disable(struct dsi_display *display)
 	rc = dsi_display_wake_up(display);
 	if (rc)
 		DSI_ERR("[%s] display wake up failed, rc=%d\n",
-			display->name, rc);
+		       display->name, rc);
 
 	if (display->config.panel_mode == DSI_OP_VIDEO_MODE) {
 		rc = dsi_display_vid_engine_disable(display);
