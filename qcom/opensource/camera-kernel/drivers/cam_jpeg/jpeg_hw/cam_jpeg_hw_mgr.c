@@ -148,6 +148,10 @@ static int cam_jpeg_add_command_buffers(struct cam_packet *packet,
 		num_entry);
 
 	for (i = 0; i < packet->num_cmd_buf; i++) {
+		rc = cam_packet_util_validate_cmd_desc(&cmd_desc[i]);
+		if (rc)
+			return rc;
+
 		CAM_DBG(CAM_JPEG,
 			"Metadata: %u Offset: 0x%x Length: %u mem_handle: 0x%x num_entry: %d",
 			cmd_desc[i].meta_data, cmd_desc[i].offset,
@@ -177,7 +181,7 @@ static int cam_jpeg_add_command_buffers(struct cam_packet *packet,
 
 			cmd_buf_kaddr = (uint32_t *)kaddr;
 
-			if ((cmd_desc[i].offset / sizeof(uint32_t)) >= len) {
+			if (cmd_desc[i].offset >= len) {
 				CAM_ERR(CAM_JPEG, "Invalid offset: %u cmd buf len: %zu",
 					cmd_desc[i].offset, len);
 				return -EINVAL;
