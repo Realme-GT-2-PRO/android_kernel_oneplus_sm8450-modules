@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * Copyright (c) 2020-2022, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/iommu.h>
@@ -1251,10 +1249,10 @@ int msm_vidc_qbuf_cache_operation(struct msm_vidc_inst *inst,
 		case MSM_VIDC_BUF_OUTPUT:
 			cache_type = MSM_MEM_CACHE_INVALIDATE;
 			offset = buf->data_offset;
-			data_size = buf->buffer_size;
+			data_size = inst->max_filled_len;
 			break;
 		case MSM_VIDC_BUF_OUTPUT_META:
-			cache_type = MSM_MEM_CACHE_INVALIDATE;
+			cache_type = MSM_MEM_CACHE_CLEAN_INVALIDATE;
 			offset = buf->data_offset;
 			data_size = buf->buffer_size - buf->data_offset;
 			break;
@@ -3276,7 +3274,6 @@ int cancel_stats_work_sync(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 	cancel_delayed_work_sync(&inst->stats_work);
-
 	return 0;
 }
 
@@ -5571,19 +5568,13 @@ int msm_vidc_update_buffer_count(struct msm_vidc_inst *inst, u32 port)
 	return 0;
 }
 
-int msm_vidc_schedule_core_deinit(struct msm_vidc_core *core, bool force_deinit)
+void msm_vidc_schedule_core_deinit(struct msm_vidc_core *core)
 {
 	if (!core)
-		return -EINVAL;
+		return;
 
-	if (!(core->capabilities[FW_UNLOAD].value || force_deinit))
-		return -EINVAL;
-
-	/* in normal case, deinit core only if no session present */
-	if (!list_empty(&core->instances)) {
-		d_vpr_e("%s(): skip core deinit\n", __func__);
-		return -ECANCELED;
-	}
+	if (!core->capabilities[FW_UNLOAD].value)
+		return;
 
 	cancel_delayed_work(&core->fw_unload_work);
 
@@ -5593,7 +5584,7 @@ int msm_vidc_schedule_core_deinit(struct msm_vidc_core *core, bool force_deinit)
 	d_vpr_h("firmware unload delayed by %u ms\n",
 		core->capabilities[FW_UNLOAD_DELAY].value);
 
-	return 0;
+	return;
 }
 
 static const char *get_codec_str(enum msm_vidc_codec_type type)
@@ -6012,7 +6003,7 @@ static int msm_vidc_check_max_sessions(struct msm_vidc_inst *inst)
 	core_lock(core, __func__);
 	list_for_each_entry(i, &core->instances, list) {
 		/* skip image sessions count */
-		if (is_image_session(i))
+		if (is_image_session(inst))
 			continue;
 
 		if (is_decode_session(i)) {
@@ -6228,8 +6219,7 @@ int msm_vidc_get_src_clk_scaling_ratio(struct msm_vidc_core *core)
 	}
 
 	if (core->platform->data.vpu_ver == VPU_VERSION_IRIS2_1PIPE ||
-		core->platform->data.vpu_ver == VENUS_VERSION_AR50LT_V1 ||
-		core->platform->data.vpu_ver == VENUS_VERSION_AR50LT_V2)
+		core->platform->data.vpu_ver == VENUS_VERSION_AR50LT_V1)
 		scaling_ratio = 1;
 
 	return scaling_ratio;
